@@ -273,6 +273,8 @@
     gainNode: null,
     filterNode: null,
     currentChordIdx: 0,
+    isMutedByUser: false,
+    _autoStartHandler: null,
 
     // Dreamy Lo-Fi Progression: Fmaj7 -> Em7 -> Dm7 -> Cmaj7
     progression: [
@@ -303,32 +305,81 @@
     ],
 
     init() {
-      // Tự động phát nhạc chill khi mở trang hoặc khi bấm vào web
+      try {
+        this.isMutedByUser = localStorage.getItem('vocab_bgm_muted') === 'true';
+      } catch (e) {
+        this.isMutedByUser = false;
+      }
+
+      if (this.isMutedByUser) {
+        this.updateUI(false);
+        return;
+      }
+
+      // Tự động phát nhạc chill khi mở trang hoặc khi có cử chỉ tương tác đầu tiên
       const autoStart = () => {
+        if (this.isMutedByUser) {
+          this._removeAutoStartListeners();
+          return;
+        }
         initAudioContext();
         if (audioCtx && audioCtx.state === 'running') {
-          this.start();
+          this.start(false);
+          this._removeAutoStartListeners();
         } else if (audioCtx && audioCtx.state === 'suspended') {
           audioCtx.resume().then(() => {
-            if (audioCtx.state === 'running') {
-              this.start();
+            if (audioCtx.state === 'running' && !this.isMutedByUser) {
+              this.start(false);
+              this._removeAutoStartListeners();
             }
           }).catch(() => {});
         }
       };
 
-      window.addEventListener('pointerdown', autoStart, { passive: true });
-      window.addEventListener('keydown', autoStart, { passive: true });
-      window.addEventListener('click', autoStart, { passive: true });
+      this._autoStartHandler = autoStart;
+      this._removeAutoStartListeners = () => {
+        if (this._autoStartHandler) {
+          window.removeEventListener('pointerdown', this._autoStartHandler);
+          window.removeEventListener('keydown', this._autoStartHandler);
+          window.removeEventListener('click', this._autoStartHandler);
+          this._autoStartHandler = null;
+        }
+      };
+
+      window.addEventListener('pointerdown', this._autoStartHandler, { passive: true });
+      window.addEventListener('keydown', this._autoStartHandler, { passive: true });
+      window.addEventListener('click', this._autoStartHandler, { passive: true });
 
       // Khởi chạy ngay lập tức nếu trình duyệt cho phép autoplay
       autoStart();
     },
 
-    start() {
+    start(manual = false) {
       if (this.isPlaying) return;
+      if (this.isMutedByUser && !manual) return;
+      if (manual) {
+        this.isMutedByUser = false;
+        try { localStorage.setItem('vocab_bgm_muted', 'false'); } catch (e) {}
+      }
+
       initAudioContext();
       if (!audioCtx) return;
+
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+          if (audioCtx.state === 'running' && (manual || !this.isMutedByUser)) {
+            this._beginPlayback();
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      this._beginPlayback();
+    },
+
+    _beginPlayback() {
+      if (this.isPlaying) return;
+      if (!audioCtx || audioCtx.state !== 'running') return;
 
       this.isPlaying = true;
       this.currentChordIdx = 0;
@@ -341,12 +392,13 @@
 
       this.gainNode = audioCtx.createGain();
       this.gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
-      this.gainNode.gain.linearRampToValueAtTime(0.24, audioCtx.currentTime + 1.8); // Gentle fade-in
+      this.gainNode.gain.linearRampToValueAtTime(0.24, audioCtx.currentTime + 1.2); // Gentle fade-in
 
       this.filterNode.connect(this.gainNode);
       this.gainNode.connect(audioCtx.destination);
 
       this.playNextChord();
+      if (this.intervalId) clearInterval(this.intervalId);
       // Mỗi hợp âm ngân vang 3.4 giây (nhịp điệu Lo-Fi thư giãn)
       this.intervalId = setInterval(() => {
         if (!this.isPlaying) return;
@@ -356,37 +408,45 @@
       this.updateUI(true);
     },
 
-    stop() {
-      if (typeof this._cleanupListeners === 'function') {
-        this._cleanupListeners();
+    stop(manual = false) {
+      if (manual) {
+        this.isMutedByUser = true;
+        try { localStorage.setItem('vocab_bgm_muted', 'true'); } catch (e) {}
+        if (typeof this._removeAutoStartListeners === 'function') {
+          this._removeAutoStartListeners();
+        }
       }
-      if (!this.isPlaying) return;
-      this.isPlaying = false;
+
       if (this.intervalId) {
         clearInterval(this.intervalId);
         this.intervalId = null;
       }
+
       if (this.gainNode && audioCtx) {
         try {
           this.gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-          this.gainNode.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+          this.gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+          this.gainNode.disconnect();
         } catch (e) {}
+        this.gainNode = null;
       }
+
+      this.isPlaying = false;
       this.updateUI(false);
     },
 
     toggle() {
       if (this.isPlaying) {
-        this.stop();
-        showToast('Đã tạm dừng nhạc Chill 🔇', 'info');
+        this.stop(true);
+        showToast('Đã tắt nhạc Chill 🔇', 'info');
       } else {
-        this.start();
+        this.start(true);
         showToast('Đã bật nhạc Chill thư giãn 🎵', 'info');
       }
     },
 
     playNextChord() {
-      if (!this.isPlaying || !audioCtx || audioCtx.state !== 'running') return;
+      if (!this.isPlaying || !audioCtx || audioCtx.state !== 'running' || !this.filterNode) return;
       const now = audioCtx.currentTime;
       const chord = this.progression[this.currentChordIdx];
       this.currentChordIdx = (this.currentChordIdx + 1) % this.progression.length;
@@ -3355,7 +3415,11 @@ personal belonging
       showToast(settings.soundEnabled ? 'Đã bật hiệu ứng âm thanh 🔊' : 'Đã tắt hiệu ứng âm thanh 🔇', 'info');
     });
 
-    document.getElementById('header-chill-bgm-btn')?.addEventListener('click', () => {
+    document.getElementById('header-chill-bgm-btn')?.addEventListener('click', (e) => {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
       ChillBGM.toggle();
     });
 
@@ -3730,7 +3794,11 @@ personal belonging
 
     enterBtn?.addEventListener('click', () => dismissIntroScreen());
     const bgmIndicator = document.getElementById('intro-bgm-status');
-    bgmIndicator?.addEventListener('click', () => {
+    bgmIndicator?.addEventListener('click', (e) => {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
       ChillBGM.toggle();
     });
   }
@@ -3743,9 +3811,9 @@ personal belonging
       introCountdownTimer = null;
     }
 
-    // Nhạc chill tự động phát khi bấm vào web
-    if (ChillBGM && !ChillBGM.isPlaying) {
-      ChillBGM.start();
+    // Nhạc chill chỉ tự động phát nếu người dùng chưa chủ động tắt
+    if (ChillBGM && !ChillBGM.isPlaying && !ChillBGM.isMutedByUser) {
+      ChillBGM.start(false);
     }
 
     // Đảm bảo không phát âm voice nào khi mới vào trang học
