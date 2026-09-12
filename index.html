@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NDV -  Nguyễn Đức Việt - Học Từ Vựng Tiếng Anh Thông Minh</title>
+  <meta name="description" content="NDV - Nguyễn Đức Việt - Học từ vựng tiếng Anh theo chương với AI kiểm tra nghĩa tiếng Việt thông minh, kiểm tra đúng/sai, trắc nghiệm và flashcard 3D.">
+  <link rel="stylesheet" href="style.css?v=20260912_5">
+</head>
+<body>
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- ==============================================
+       TRANG INTRO 30S HOẶC NHẤN ENTER ĐỂ VÀO
+       ============================================== -->
+  <div id="intro-screen" class="intro-overlay active">
+    <div class="intro-backdrop-blur"></div>
+    <div class="intro-container">
+      <div class="intro-hero-visual">
+        <div class="intro-art-frame">
+          <img src="assets/luffy_gear5_bg.png" alt="NDV - Nguyễn Đức Việt -" class="intro-art-img">
+          <div class="intro-art-glow"></div>
+        </div>
+      </div>
+
+      <div class="intro-content">
+        <div class="intro-tag">
+          <span>⚡</span> HỆ THỐNG HỌC TẬP THÔNG MINH
+        </div>
+        <h1 class="intro-brand-title">NDV -  Nguyễn Đức Việt -</h1>
+        <p class="intro-brand-desc">
+          Nền tảng Master Từ Vựng Tiếng Anh Theo Chương • Trợ Lý AI Check Nghĩa & Chấm Điểm Thông Minh
+        </p>
+
+        <div class="intro-features-grid">
+          <div class="intro-feature-box">
+            <span class="feat-icon">📚</span>
+            <div class="feat-info">
+              <strong>Học Theo Từng Chương</strong>
+              <p>Tùy chọn học theo bài, đồng bộ Quizlet tức thì</p>
+            </div>
+          </div>
+
+          <div class="intro-feature-box">
+            <span class="feat-icon">🎯</span>
+            <div class="feat-info">
+              <strong>Gõ Từ Trực Tiếp</strong>
+              <p>Sai đâu báo đỏ ở đấy, luyện gõ nhớ lâu</p>
+            </div>
+          </div>
+
+          <div class="intro-feature-box">
+            <span class="feat-icon">🔊</span>
+            <div class="feat-info">
+              <strong>Phát Âm Bản Ngữ</strong>
+              <p>Chọn chương học để bắt đầu luyện nghe phát âm</p>
+            </div>
+          </div>
+
+          <div class="intro-feature-box">
+            <span class="feat-icon">🤖</span>
+            <div class="feat-info">
+              <strong>AI Semantic Coach</strong>
+              <p>Chấm nghĩa tiếng Việt theo ngữ nghĩa thông minh</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="intro-actions-bar">
+          <div class="intro-timer-badge">
+            <span class="pulse-timer-circle"></span>
+            <span>Tự động vào sau: <strong id="intro-countdown-sec">30</strong>s</span>
+          </div>
+
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div id="intro-bgm-status" class="intro-bgm-indicator chill-bgm-toggle-btn is-playing" title="Nhạc Chill đang tự động phát (Click để Bật/Tắt)">
+              <span class="music-wave-bars">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="bgm-status-text">Nhạc Chill Tự Động 🎵</span>
+            </div>
+            <button id="intro-enter-btn" class="btn btn-primary intro-cta-btn">
+              <span>🚀</span> Bắt Đầu Vào Học ➔ (Nhấn Enter)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================================
+       MODAL HOÀN THÀNH CHƯƠNG (ẢNH LUFFY & BẤM BẤT KỲ ĐỂ QUAY LẠI)
+       ============================================== -->
+  <div id="chapter-complete-modal" class="complete-overlay" style="display: none;">
+    <div class="complete-container">
+      <div class="complete-img-wrap">
+        <img src="assets/luffy_complete.png" alt="Hoàn thành xuất sắc từ vựng" class="complete-luffy-img">
+      </div>
+      <div class="complete-badge">🎉 CHÚC MỪNG HOÀN THÀNH XUẤT SẮC!</div>
+      <h2 class="complete-title" id="complete-chapter-title">Đã Học Hết Toàn Bộ Từ Vựng!</h2>
+      <p class="complete-desc" id="complete-chapter-desc">
+        Bạn đã học hết đủ tất cả các từ trong chương này! Luffy rất vui và tự hào về bạn! ✨
+      </p>
+      <div class="complete-cta-hint">
+        <span class="pulse-key-icon">⌨️</span>
+        <span>Nhấn <strong>phím bất kỳ</strong> hoặc click màn hình để quay lại</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon" style="background: linear-gradient(135deg, #f59e0b, #ef4444); border-color: #fbbf24; font-size: 1.5rem; text-shadow: 0 0 12px rgba(245, 158, 11, 0.7);">⚡</div>
+        <div class="logo-text">
+          <h1>NDV -  Nguyễn Đức Việt -</h1>
+          <p>Học Theo Chương & AI Check Nghĩa Tiếng Việt</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="stat-pill streak" id="streak-pill" title="Số từ kiểm tra đúng liên tiếp">
+          <span>🔥</span>
+          <span id="streak-count">0</span> streak
+        </div>
+        <div class="stat-pill" title="Số từ đã thuộc trong chương / Tổng số">
+          <span>✨</span>
+          <span id="header-mastered-count">0/0</span>
+        </div>
+        <button class="btn btn-secondary chill-bgm-toggle-btn is-playing" id="header-chill-bgm-btn" title="Bật/Tắt nhạc Chill Lo-Fi thư giãn">
+          <span class="music-wave-bars">
+            <span></span><span></span><span></span>
+          </span>
+          <span class="bgm-status-text">Nhạc Chill 🎵</span>
+        </button>
+        <button class="btn btn-secondary btn-icon" id="toggle-sound-btn" title="Bật/Tắt hiệu ứng âm thanh">
+          <span id="sound-icon">🔊</span>
+        </button>
+        <button class="btn btn-ai" id="open-ai-settings-btn" title="Cấu hình Trợ lý AI Check nghĩa">
+          <span>🤖</span> Cài Đặt AI
+        </button>
+        <button class="btn btn-primary" id="open-add-modal-btn">
+          <span>+</span> Thêm Từ Mới
+        </button>
+      </div>
+    </header>
+
+    <!-- CHAPTER BAR (THANH CHỌN & QUẢN LÝ CHƯƠNG) -->
+    <div class="chapter-bar-container">
+      <div class="chapter-select-wrap">
+        <label for="global-chapter-select">
+          <span>📚</span> Chọn Chương Học:
+        </label>
+        <select id="global-chapter-select" class="chapter-dropdown">
+          <option value="all">🌟 Tất cả các chương (Toàn bộ từ vựng)</option>
+          <!-- Chapters rendered dynamically -->
+        </select>
+      </div>
+
+      <div class="chapter-actions">
+        <button class="btn btn-primary" id="open-wizard-btn" title="Tạo chương mới và thêm danh sách từ vựng ngay">
+          <span>✨</span> Tạo Chương & Thêm Từ
+        </button>
+        <button class="btn btn-ai" id="open-quizlet-quick-btn" title="Nhập từ vựng trực tiếp từ link hoặc bộ thẻ Quizlet">
+          <span>🔗</span> Nhập Từ Quizlet
+        </button>
+        <button class="btn btn-secondary" id="quick-add-to-current-btn" title="Thêm từ mới trực tiếp vào chương đang chọn">
+          <span>➕</span> Thêm Từ Vào Chương Này
+        </button>
+        <button class="btn btn-secondary" id="open-chapter-modal-btn" title="Quản lý danh sách chương hoặc xóa chương">
+          <span>📑</span> Quản Lý Chương
+        </button>
+      </div>
+
+      <!-- Nút bấm chọn chương học nhanh và tự động phát âm -->
+      <div class="quick-chapter-pills-wrap" id="quick-chapter-pills-wrap">
+        <span class="pills-label">👉 Bấm vào chương cần học (Tự động phát âm 🔊):</span>
+        <div class="quick-chapter-pills" id="quick-chapter-pills">
+          <!-- Chapters rendered dynamically as clickable pill buttons -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="tab-btn active" data-tab="check-view" id="tab-check">
+        <span>✍️</span> Kiểm Tra Đúng / Sai
+      </button>
+      <button class="tab-btn" data-tab="quiz-view" id="tab-quiz">
+        <span>🎯</span> Trắc Nghiệm
+      </button>
+      <button class="tab-btn" data-tab="flashcard-view" id="tab-flashcard">
+        <span>🗂️</span> Thẻ Flashcard
+      </button>
+      <button class="tab-btn" data-tab="list-view" id="tab-list">
+        <span>📚</span> Danh Sách Từ Vựng
+      </button>
+      <button class="tab-btn" data-tab="stats-view" id="tab-stats">
+        <span>📊</span> Thống Kê & Tiến Độ
+      </button>
+    </nav>
+
+    <!-- ==============================================
+         TAB 1: KIỂM TRA ĐÚNG / SAI (VI ➔ EN HOẶC EN ➔ VI AI)
+         ============================================== -->
+    <section id="check-view" class="view-section active">
+      <div class="check-tester">
+        <!-- Chuyển đổi hướng kiểm tra & Tùy chọn sửa sai -->
+        <div class="direction-toggle-bar">
+          <div class="direction-btns-group">
+            <button class="direction-btn active" id="btn-mode-vi-en" data-mode="vi-en">
+              <span>🔤</span> Gõ Từ Tiếng Anh (Vi ➔ En)
+            </button>
+            <button class="direction-btn ai-mode" id="btn-mode-en-vi" data-mode="en-vi">
+              <span>🤖</span> AI Check Nghĩa Tiếng Việt (En ➔ Vi)
+            </button>
+          </div>
+
+          <label class="strict-correction-pill" id="strict-toggle-container" title="Bật chế độ: Sai ký tự nào báo đỏ ngay ký tự đó và giữ nguyên câu hỏi để sửa đúng mới chuyển tiếp">
+            <input type="checkbox" id="strict-correction-checkbox" checked>
+            <span class="strict-pill-icon">🔴</span>
+            <span class="strict-pill-text">Sai đâu báo đỏ & đợi sửa đúng</span>
+          </label>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="tester-progress-bar">
+          <span style="font-size: 0.88rem; color: var(--text-muted);" id="check-progress-text">Từ 1 / 24</span>
+          <div class="progress-track">
+            <div class="progress-fill" id="check-progress-fill"></div>
+          </div>
+          <button class="btn btn-secondary btn-icon" id="shuffle-check-btn" title="Xáo trộn câu hỏi">
+            🔀
+          </button>
+        </div>
+
+        <!-- Question Card -->
+        <div class="test-card" id="test-card">
+          <div class="prompt-badge-row">
+            <span class="chapter-chip-badge" id="prompt-chapter-badge">
+              <span>📖</span> <span id="prompt-chapter-name">Chương 1</span>
+            </span>
+            <span class="pos-tag" id="prompt-pos">adj</span>
+          </div>
+
+          <!-- Main prompt content (changes depending on mode) -->
+          <div class="prompt-main-display" id="prompt-main-display">
+            <span id="prompt-title-text">kiên cường, bền bỉ</span>
+            <button class="btn btn-icon btn-secondary" id="prompt-speak-btn" style="display: none;" title="Nghe phát âm">
+              🔊
+            </button>
+          </div>
+          <div class="prompt-phonetic" id="prompt-phonetic-sub" style="display: none;"></div>
+
+          <div class="prompt-sentence" id="prompt-sentence">
+            "Children are often remarkably <mark id="sentence-blank">_______</mark> in facing new environments."
+            <span class="sentence-trans" id="prompt-sentence-trans">Trẻ em thường rất kiên cường khi đối mặt với môi trường mới.</span>
+          </div>
+
+          <!-- Typing Form -->
+          <div class="typing-box">
+            <div class="input-wrapper">
+              <input type="text" id="check-user-input" class="vocab-input" placeholder="Gõ câu trả lời tại đây..." autocomplete="off" spellcheck="false">
+            </div>
+
+            <!-- Live & On-Check Character Diff Visualizer (Chỉ báo đỏ vị trí sai) -->
+            <div class="char-diff-card" id="char-diff-card" style="display: none;">
+              <div class="char-diff-header">
+                <span class="diff-header-icon" id="char-diff-icon">⚠️</span>
+                <span class="diff-header-title" id="char-diff-title">Vị trí ký tự sai được báo đỏ dưới đây (hãy sửa lại):</span>
+              </div>
+              <div class="char-diff-stream" id="char-diff-stream">
+                <!-- Generated character boxes -->
+              </div>
+            </div>
+
+            <!-- Loading Indicator for AI -->
+            <div class="ai-loading-indicator" id="ai-loading-indicator">
+              <div class="spinner"></div>
+              <span>Trí tuệ nhân tạo AI đang phân tích ngữ nghĩa câu trả lời...</span>
+            </div>
+
+            <div class="typing-actions" id="typing-actions-default">
+              <button class="btn btn-secondary" id="hint-btn">
+                <span>💡</span> Gợi ý
+              </button>
+              <button class="btn btn-primary" id="submit-check-btn">
+                <span>✓</span> Kiểm Tra (Enter)
+              </button>
+            </div>
+
+            <div class="typing-actions" id="typing-actions-next" style="display: none;">
+              <button class="btn btn-primary" id="next-check-btn">
+                Từ Tiếp Theo ➔ (Enter)
+              </button>
+            </div>
+          </div>
+
+          <!-- Standard Feedback Box (Vi ➔ En) -->
+          <div class="ai-eval-box" id="standard-feedback-box">
+            <div class="ai-eval-header">
+              <div class="ai-verdict-title" id="std-feedback-title">🎉 CHÍNH XÁC!</div>
+              <button class="btn btn-icon btn-secondary" id="speak-correct-btn" title="Phát âm chuẩn">
+                🔊
+              </button>
+            </div>
+            <div class="correct-reveal" id="std-feedback-detail">
+              <div class="reveal-top-row">
+                <span style="color: #94a3b8; font-size: 0.9rem;">Từ vựng chuẩn:</span>
+                <strong style="color: #38bdf8; font-size: 1.3rem; margin-left: 6px;" id="reveal-word">resilient</strong>
+                <span style="color: #cbd5e1; font-style: italic; margin-left: 6px;" id="reveal-phonetic">/rɪˈzɪl.i.ənt/</span>
+              </div>
+              <div class="reveal-meaning-row" style="margin-top: 8px; color: #f1f5f9; font-size: 1.05rem;">
+                <span style="color: #fbbf24; font-weight: 700;">📖 Nghĩa tiếng Việt:</span>
+                <strong id="reveal-meaning" style="color: #34d399; margin-left: 6px;">kiên cường, bền bỉ</strong>
+              </div>
+              <div class="reveal-example-row" id="reveal-example-box" style="margin-top: 10px; font-size: 0.92rem; color: #e2e8f0; border-top: 1px dashed rgba(255,255,255,0.12); padding-top: 8px; line-height: 1.5;">
+                <span style="color: #93c5fd; font-weight: 600;">💡 Ví dụ minh họa:</span>
+                <span id="reveal-example" style="font-style: italic; margin-left: 4px;"></span>
+                <span id="reveal-ex-meaning" style="color: #94a3b8; margin-left: 6px;"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Evaluation Box (En ➔ Vi AI Mode) -->
+          <div class="ai-eval-box" id="ai-feedback-box">
+            <div class="ai-eval-header">
+              <span class="ai-badge">🤖 AI Semantic Grader</span>
+              <span class="ai-score-badge" id="ai-score-text">Độ chuẩn: 95%</span>
+            </div>
+            <div class="ai-verdict-title" id="ai-verdict-title">Tuyệt vời! Nghĩa dịch rất chính xác</div>
+            <div class="ai-verdict-explanation" id="ai-verdict-explanation">
+              Câu trả lời của bạn thể hiện đúng sắc thái phục hồi và kiên trì trong hoàn cảnh khó khăn.
+            </div>
+            <div class="ai-synonyms-row" id="ai-synonyms-row">
+              <strong>Nghĩa gốc & các từ đồng nghĩa:</strong> <span id="ai-suggested-synonyms">kiên cường, bền bỉ, dẻo dai</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================
+         TAB 2: TRẮC NGHIỆM 4 ĐÁP ÁN
+         ============================================== -->
+    <section id="quiz-view" class="view-section">
+      <div class="quiz-container glass-panel">
+        <div class="tester-progress-bar">
+          <span style="font-size: 0.88rem; color: var(--text-muted);" id="quiz-progress-text">Câu hỏi 1 / 10</span>
+          <div class="progress-track">
+            <div class="progress-fill" id="quiz-progress-fill"></div>
+          </div>
+          <span style="font-size: 0.88rem; color: #34d399; font-weight: 600;" id="quiz-score-text">Điểm: 0</span>
+        </div>
+
+        <div class="quiz-question-box">
+          <span class="quiz-badge" id="quiz-chapter-badge">Chương 1</span>
+          <div class="quiz-word-display">
+            <span id="quiz-current-word">ubiquitous</span>
+            <button class="btn btn-icon btn-secondary" id="quiz-speak-btn" title="Nghe phát âm">
+              🔊
+            </button>
+          </div>
+          <div class="quiz-phonetic" id="quiz-current-phonetic">/juːˈbɪk.wə.t̬əs/</div>
+        </div>
+
+        <div class="quiz-options-grid" id="quiz-options-container">
+          <!-- Options dynamically rendered -->
+        </div>
+
+        <div style="text-align: right; margin-top: 14px; display: none;" id="quiz-next-row">
+          <button class="btn btn-primary" id="quiz-next-btn">
+            Câu Kế Tiếp ➔
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================
+         TAB 3: THẺ FLASHCARD 3D
+         ============================================== -->
+    <section id="flashcard-view" class="view-section">
+      <div class="flashcard-wrapper">
+        <div class="tester-progress-bar">
+          <span style="font-size: 0.88rem; color: var(--text-muted);" id="card-progress-text">Thẻ 1 / 24</span>
+          <div class="progress-track">
+            <div class="progress-fill" id="card-progress-fill"></div>
+          </div>
+          <button class="btn btn-secondary btn-icon" id="shuffle-card-btn" title="Xáo thẻ">
+            🔀
+          </button>
+        </div>
+
+        <!-- 3D Card Scene -->
+        <div class="flashcard-scene">
+          <div class="flashcard" id="flashcard-element">
+            <!-- Mặt Trước -->
+            <div class="flashcard-face flashcard-front">
+              <div class="card-top-info">
+                <span class="chapter-chip-badge" id="card-front-chapter">📖 Chương 1</span>
+                <span class="pos-tag" id="card-front-pos">noun</span>
+              </div>
+              <div class="card-center-content">
+                <div class="main-word" id="card-front-word">empathy</div>
+                <div class="main-phonetic" id="card-front-phonetic">/ˈem.pə.θi/</div>
+                <button class="btn btn-secondary" id="card-speak-btn" style="margin-top: 18px;" onclick="event.stopPropagation();">
+                  <span>🔊</span> Nghe phát âm
+                </button>
+              </div>
+              <div class="card-bottom-hint">
+                <span>🔄</span> Nhấp vào thẻ hoặc bấm phím Cách (Space) để xem nghĩa
+              </div>
+            </div>
+
+            <!-- Mặt Sau -->
+            <div class="flashcard-face flashcard-back">
+              <div class="card-top-info">
+                <span class="chapter-chip-badge" id="card-back-chapter">📖 Chương 1</span>
+                <span style="color: #34d399; font-weight: 600; font-size: 0.85rem;">Mặt sau</span>
+              </div>
+              <div class="card-center-content">
+                <div class="main-phonetic" id="card-back-sub-phonetic" style="margin-bottom: 10px; color: #38bdf8; font-family: var(--font-mono); font-size: 1.15rem;"></div>
+                <div class="main-meaning" id="card-back-meaning">sự thấu cảm, khả năng hiểu cảm xúc người khác</div>
+                <div class="example-box">
+                  <p id="card-back-example">"Having empathy helps us build stronger relationships."</p>
+                  <p style="color: var(--text-faint); margin-top: 6px;" id="card-back-ex-meaning">Có sự thấu cảm giúp chúng ta xây dựng mối quan hệ bền vững.</p>
+                </div>
+              </div>
+              <div class="card-bottom-hint">
+                <span>🔄</span> Nhấp lại để xem mặt trước
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flashcard Controls -->
+        <div class="flashcard-controls">
+          <button class="btn btn-danger-outline" id="card-review-btn">
+            <span>❌</span> Cần ôn lại
+          </button>
+          <button class="btn btn-secondary" id="card-prev-btn">
+            <span>◀</span> Trước
+          </button>
+          <button class="btn btn-secondary" id="card-next-btn">
+            Sau <span>▶</span>
+          </button>
+          <button class="btn btn-success" id="card-master-btn">
+            <span>✓</span> Đã nhớ kỹ
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================
+         TAB 4: DANH SÁCH TỪ VỰNG & QUẢN LÝ
+         ============================================== -->
+    <section id="list-view" class="view-section">
+      <div class="glass-panel">
+        <div class="vocab-toolbar">
+          <div class="search-filter-group">
+            <div class="search-input-wrap">
+              <span class="search-icon-pos">🔍</span>
+              <input type="text" id="vocab-search" class="search-input" placeholder="Tìm kiếm từ tiếng Anh, nghĩa tiếng Việt...">
+            </div>
+            <select id="filter-chapter" class="topic-select">
+              <option value="all">Tất cả chương</option>
+              <!-- Populated dynamically -->
+            </select>
+            <select id="filter-status" class="topic-select">
+              <option value="all">Tất cả trạng thái</option>
+              <option value="learning">Đang học (Cần ôn)</option>
+              <option value="mastered">Đã thuộc</option>
+            </select>
+          </div>
+
+          <div class="data-actions">
+            <button class="btn btn-secondary" id="export-btn" title="Xuất dữ liệu ra file JSON">
+              📥 Xuất JSON
+            </button>
+            <label class="btn btn-secondary" style="cursor: pointer; margin-bottom: 0;" title="Nhập danh sách từ file JSON">
+              📤 Nhập JSON
+              <input type="file" id="import-input" accept=".json" style="display: none;">
+            </label>
+            <button class="btn btn-secondary" id="reset-default-btn" title="Khôi phục lại dữ liệu mẫu">
+              🔄 Reset Mẫu
+            </button>
+          </div>
+        </div>
+
+        <!-- Grid of Word Cards -->
+        <div class="words-grid" id="words-grid-container">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div id="no-words-msg" style="display: none; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+          Không tìm thấy từ vựng phù hợp trong chương này. Hãy thử chọn chương khác hoặc bấm <strong>+ Thêm Từ Mới</strong>!
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================
+         TAB 5: THỐNG KÊ & TIẾN ĐỘ
+         ============================================== -->
+    <section id="stats-view" class="view-section">
+      <div class="stats-grid">
+        <div class="stat-metric-card">
+          <div class="metric-label">Tổng số từ vựng</div>
+          <div class="metric-number" id="stats-total-words">0</div>
+          <div style="font-size: 0.8rem; color: var(--text-faint);">Trong tất cả các chương</div>
+        </div>
+
+        <div class="stat-metric-card">
+          <div class="metric-label">Từ đã ghi nhớ tốt</div>
+          <div class="metric-number" style="background: linear-gradient(135deg, #34d399, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stats-mastered-words">0</div>
+          <div style="font-size: 0.8rem; color: #34d399;" id="stats-mastered-pct">0% hoàn thành</div>
+        </div>
+
+        <div class="stat-metric-card">
+          <div class="metric-label">Độ chính xác kiểm tra</div>
+          <div class="metric-number" id="stats-accuracy-pct">100%</div>
+          <div style="font-size: 0.8rem; color: var(--text-faint);">Bao gồm cả AI Check</div>
+        </div>
+
+        <div class="stat-metric-card">
+          <div class="metric-label">Streak cao nhất</div>
+          <div class="metric-number" style="background: linear-gradient(135deg, #fb923c, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stats-max-streak">0</div>
+          <div style="font-size: 0.8rem; color: #fb923c;">Chuỗi đúng liên tiếp</div>
+        </div>
+      </div>
+
+      <div class="glass-panel" style="margin-top: 24px;">
+        <h3 style="font-family: var(--font-heading); margin-bottom: 16px;">Tiến độ chi tiết theo từng Chương</h3>
+        <div id="chapter-breakdown-list" style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Chapter breakdown rows -->
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ==============================================
+       MODAL 1: THÊM / SỬA TỪ VỰNG
+       ============================================== -->
+  <div class="modal-backdrop" id="word-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="modal-title">Thêm Từ Vựng Mới</h2>
+        <button class="btn btn-icon btn-secondary" id="close-modal-btn">✕</button>
+      </div>
+
+      <form id="word-form">
+        <input type="hidden" id="form-word-id">
+
+        <div class="form-group">
+          <label class="form-label" for="form-chapter">Thuộc Chương (*)</label>
+          <div style="display: flex; gap: 8px;">
+            <select id="form-chapter" class="form-select" style="flex: 1;" required>
+              <!-- Populated dynamically -->
+            </select>
+            <button type="button" class="btn btn-secondary" id="form-add-new-chap-btn" title="Tạo chương mới ngay">
+              + Tạo chương
+            </button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="form-word">Từ tiếng Anh (*)</label>
+            <input type="text" id="form-word" class="form-input" placeholder="Ví dụ: perseverance" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="form-pos">Loại từ</label>
+            <select id="form-pos" class="form-select">
+              <option value="noun">Danh từ (noun)</option>
+              <option value="verb">Động từ (verb)</option>
+              <option value="adj">Tính từ (adj)</option>
+              <option value="adv">Trạng từ (adv)</option>
+              <option value="phrase">Cụm từ (phrase)</option>
+              <option value="idiom">Thành ngữ (idiom)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="form-phonetic">Phiên âm IPA</label>
+            <input type="text" id="form-phonetic" class="form-input" placeholder="Ví dụ: /ˌpɜː.sɪˈvɪə.rəns/">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="form-topic">Chủ đề mở rộng</label>
+            <select id="form-topic" class="form-select">
+              <option value="daily">Cuộc sống & Giao tiếp</option>
+              <option value="work">Công việc & Kinh doanh</option>
+              <option value="travel">Du lịch & Khám phá</option>
+              <option value="academic">Học thuật & IELTS</option>
+              <option value="tech">Công nghệ & AI</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="form-meaning">Nghĩa tiếng Việt (*)</label>
+          <input type="text" id="form-meaning" class="form-input" placeholder="Ví dụ: tính kiên trì, sự bền chí" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="form-synonyms">Các từ đồng nghĩa tiếng Việt (để AI đối chiếu)</label>
+          <input type="text" id="form-synonyms" class="form-input" placeholder="Ví dụ: kiên nhẫn, bền bỉ, dẻo dai (cách nhau bằng dấu phẩy)">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="form-example">Câu ví dụ tiếng Anh</label>
+          <input type="text" id="form-example" class="form-input" placeholder="Ví dụ: Through hard work and perseverance, he succeeded.">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="form-example-meaning">Dịch nghĩa câu ví dụ</label>
+          <input type="text" id="form-example-meaning" class="form-input" placeholder="Ví dụ: Nhờ làm việc chăm chỉ và sự kiên trì, anh ấy đã thành công.">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="modal-test-audio-btn">
+            <span>🔊</span> Nghe thử từ
+          </button>
+          <button type="button" class="btn btn-secondary" id="cancel-modal-btn">
+            Hủy
+          </button>
+          <button type="submit" class="btn btn-primary" id="save-word-btn">
+            💾 Lưu Từ Vựng
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==============================================
+       MODAL 2: QUẢN LÝ & TẠO CHƯƠNG MỚI
+       ============================================== -->
+  <div class="modal-backdrop" id="chapter-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2>Quản Lý Các Chương Học</h2>
+        <button class="btn btn-icon btn-secondary" id="close-chapter-modal-btn">✕</button>
+      </div>
+
+      <div style="margin-bottom: 20px; background: rgba(0,0,0,0.25); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+        <h4 style="margin-bottom: 12px; color: var(--primary-light);">+ Tạo Chương Mới</h4>
+        <form id="new-chapter-form">
+          <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label">Tên chương (*)</label>
+              <input type="text" id="new-chap-name" class="form-input" placeholder="Ví dụ: BTVN 10, Unit 2..." required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">📁 Thư Mục / Folder</label>
+              <input type="text" id="new-chap-folder" class="form-input" placeholder="Ví dụ: BTVN & Khóa Học" value="BTVN & Khóa Học">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mô tả ngắn</label>
+            <input type="text" id="new-chap-desc" class="form-input" placeholder="Ví dụ: Từ vựng về biến đổi khí hậu, sinh thái học">
+          </div>
+          <div style="text-align: right;">
+            <button type="submit" class="btn btn-primary">
+              Thêm Chương Này
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4 style="margin-bottom: 0;">Danh Sách Chương Hiện Có</h4>
+        <button type="button" class="btn btn-secondary" id="export-folder-backup-btn" style="font-size: 0.8rem; padding: 5px 12px;" title="Tải toàn bộ thư mục và từ vựng thành file JSON để dùng lại sau này">
+          📁 Tải File Dùng Sau Này (JSON)
+        </button>
+      </div>
+      <div id="chapters-manage-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="done-chapter-modal-btn">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================================
+       MODAL 3: CẤU HÌNH AI CHECK NGHĨA TIẾNG VIỆT
+       ============================================== -->
+  <div class="modal-backdrop" id="ai-settings-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2>🤖 Cấu Hình Trợ Lý AI Check Nghĩa</h2>
+        <button class="btn btn-icon btn-secondary" id="close-ai-modal-btn">✕</button>
+      </div>
+
+      <div style="font-size: 0.92rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6;">
+        Hệ thống hỗ trợ 2 chế độ kiểm tra nghĩa tiếng Việt thông minh:
+        <ul style="margin-left: 20px; margin-top: 8px;">
+          <li><strong>Bộ phân tích ngữ nghĩa tích hợp (Mặc định):</strong> Chạy tức thì 100% trên trình duyệt không cần mạng, đối chiếu từ đồng nghĩa, gốc từ và bối cảnh.</li>
+          <li><strong>Gemini AI API (Nâng cao):</strong> Đánh giá như giáo viên bản xứ, phân tích sắc thái ngữ pháp và độ tự nhiên.</li>
+        </ul>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="gemini-api-key">Google Gemini API Key (Tùy chọn)</label>
+        <input type="password" id="gemini-api-key" class="form-input" placeholder="Nhập API Key của bạn (AIzaSy...) nếu có">
+        <small style="color: var(--text-faint); display: block; margin-top: 6px;">
+          API key chỉ được lưu trong trình duyệt của bạn (LocalStorage) và không gửi đi đâu khác. Nếu để trống, hệ thống sẽ sử dụng Bộ phân tích ngữ nghĩa tích hợp sẵn.
+        </small>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="clear-api-key-btn">
+          Xóa Key
+        </button>
+        <button type="button" class="btn btn-primary" id="save-ai-settings-btn">
+          💾 Lưu Cấu Hình AI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================================
+       MODAL: TẠO CHƯƠNG & CHỌN LỌC TỪ VỰNG NẠP VÀO
+       ============================================== -->
+  <div class="modal-backdrop" id="wizard-modal">
+    <div class="modal-container" style="max-width: 780px;">
+      <div class="modal-header">
+        <h2>✨ Tạo Chương & Chọn Lọc Từ Vựng Nạp Vào</h2>
+        <button class="btn btn-icon btn-secondary" id="close-wizard-modal-btn">✕</button>
+      </div>
+
+      <form id="wizard-import-form">
+        <!-- 1. Chọn mục tiêu nạp -->
+        <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 14px;">
+          <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: white;">
+              <input type="radio" name="wizard-target-type" id="target-new-chap" value="new" checked>
+              <span>Tạo chương mới</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--text-muted);">
+              <input type="radio" name="wizard-target-type" id="target-curr-chap" value="current">
+              <span>Thêm vào chương hiện có: <strong id="wizard-target-curr-name" style="color: #38bdf8;">BTVN 09</strong></span>
+            </label>
+          </div>
+
+          <div id="wizard-new-chap-input-wrap">
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px;">
+              <div>
+                <label class="form-label" for="wizard-chapter-name">Tên Chương Mới (*)</label>
+                <input type="text" id="wizard-chapter-name" class="form-input" value="Chương: BTVN 09" placeholder="Ví dụ: BTVN 09, Unit 1..." required>
+              </div>
+              <div>
+                <label class="form-label" for="wizard-folder-name">📁 Thư Mục / Folder (Lưu sau này)</label>
+                <input type="text" id="wizard-folder-name" class="form-input" value="BTVN & Khóa Học" placeholder="Ví dụ: BTVN, IELTS, Giao Tiếp...">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Nhập trực tiếp từ link Quizlet -->
+        <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="wizard-quizlet-url" style="margin-bottom: 0; color: #38bdf8; font-weight: 700;">
+              🔗 Nhập trực tiếp từ link Quizlet:
+            </label>
+            <span style="font-size: 0.78rem; color: #a5b4fc;">⚡ Tự nhận diện & nạp ngay</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="url" id="wizard-quizlet-url" class="form-input" placeholder="Dán link Quizlet vào đây (ví dụ: https://quizlet.com/vn/1204911360/btvn-09-flash-cards/?new)..." style="flex: 1; font-size: 0.88rem;">
+            <button type="button" class="btn btn-ai" id="wizard-fetch-quizlet-btn" style="white-space: nowrap; padding: 8px 16px; font-size: 0.88rem;">
+              ⚡ Nạp Từ Link
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Dán nội dung -->
+        <div class="form-group" style="margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+            <label class="form-label" for="wizard-raw-text" style="margin-bottom: 0;">
+              Hoặc dán văn bản từ Quizlet / tài liệu (*):
+            </label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary" id="wizard-paste-clipboard-btn" style="padding: 4px 10px; font-size: 0.8rem;" title="Dán nội dung từ clipboard">
+                📋 Dán từ Clipboard
+              </button>
+              <label class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; margin-bottom: 0;" title="Nhập file JSON hoặc TXT">
+                📁 Nhập File
+                <input type="file" id="wizard-file-input" accept=".json,.txt" style="display: none;">
+              </label>
+              <button type="button" class="btn btn-secondary" id="wizard-paste-sample-btn" style="padding: 4px 10px; font-size: 0.8rem;">
+                Dán mẫu BTVN 09
+              </button>
+            </div>
+          </div>
+          <textarea id="wizard-raw-text" class="form-textarea" rows="6" placeholder="Dán văn bản bất kỳ vào đây. Hệ thống tự động lọc sạch các dòng rác (như 'Công khai', 'Tiêu đề', 'Gợi ý', số thứ tự 1, 2...) và bóc tách chuẩn xác Từ tiếng Anh, Phiên âm IPA và Nghĩa tiếng Việt!"></textarea>
+        </div>
+
+        <!-- 3. Bảng chọn lọc từ vựng tương tác -->
+        <div class="word-picker-box" id="word-picker-box" style="display: none;">
+          <div class="word-picker-toolbar">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 700; color: white;">
+                <input type="checkbox" id="picker-select-all" checked>
+                <span>Chọn tất cả</span>
+              </label>
+              <span style="color: #34d399; font-weight: 600;">
+                (Đang chọn: <span id="picker-selected-count">0</span> / <span id="picker-total-count">0</span> từ)
+              </span>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">
+              💡 Bạn có thể sửa trực tiếp ô chữ bên dưới trước khi nạp
+            </div>
+          </div>
+
+          <div class="word-picker-list" id="word-picker-list">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 16px;">
+          <button type="button" class="btn btn-secondary" id="close-wizard-btn">
+            Hủy
+          </button>
+          <button type="submit" class="btn btn-ai" id="submit-wizard-btn" style="padding: 11px 22px; font-size: 0.95rem;">
+            🚀 Nạp <span id="btn-count-display">0</span> Từ Đã Chọn Vào Học Ngay!
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Quizlet Smart Helper Modal -->
+  <div class="modal" id="quizlet-guide-modal">
+    <div class="modal-dialog glass-panel" style="max-width: 560px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <span>🔗</span> Hướng Dẫn Nhập Từ Quizlet
+        </h3>
+        <button class="modal-close" id="close-quizlet-guide-btn">&times;</button>
+      </div>
+      <div class="modal-body" style="line-height: 1.6;">
+        <div style="background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(14, 165, 233, 0.35); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; font-size: 0.88rem; color: #bae6fd;">
+          💡 <strong>Mẹo nhanh:</strong> Quizlet có cơ chế bảo mật tự động chặn quét từ máy chủ ngoài, nhưng bạn có thể lấy toàn bộ từ vựng chỉ mất <strong>3 giây</strong>!
+        </div>
+
+        <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px;">
+          <li>
+            Mở trang Quizlet của bạn:
+            <a href="#" id="quizlet-guide-open-link" target="_blank" class="btn btn-secondary" style="display: inline-flex; padding: 2px 10px; font-size: 0.82rem; margin-left: 6px; text-decoration: none; color: #38bdf8;">
+              Mở link này trên Quizlet ↗
+            </a>
+          </li>
+          <li>
+            Dưới tiêu đề bộ thẻ trên Quizlet, bấm vào nút <strong><code>...</code> (Tùy chọn)</strong> ➔ Chọn <strong>Xuất (Export)</strong>.
+          </li>
+          <li>
+            Bấm nút <strong>Sao chép văn bản (Copy text)</strong>.
+          </li>
+          <li>
+            Quay lại đây và bấm nút bên dưới để nạp tự động vào bảng!
+          </li>
+        </ol>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px;">
+          <button type="button" class="btn btn-secondary" id="quizlet-guide-close-btn">
+            Đóng
+          </button>
+          <button type="button" class="btn btn-primary" id="quizlet-guide-paste-now-btn" style="padding: 10px 20px;">
+            <span>📋</span> Dán Từ Clipboard Vào Ngay
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Area -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="default-words.js?v=20260912_5"></script>
+  <script src="app.js?v=20260912_5"></script>
+</body>
+</html>
