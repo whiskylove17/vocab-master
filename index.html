@@ -128,6 +128,14 @@
           <span>✨</span>
           <span id="header-mastered-count">0/0</span>
         </div>
+        <button class="btn btn-secondary cloud-sync-btn" id="open-cloud-sync-btn" title="Đồng bộ Đám mây & Đa thiết bị (Click để xem)">
+          <span class="cloud-sync-icon">☁️</span>
+          <span class="sync-status-dot synced" id="header-sync-dot"></span>
+          <span id="header-sync-text">Đám Mây</span>
+        </button>
+        <button class="btn btn-secondary phone-sync-btn" id="open-phone-sync-btn" title="Quét mã QR để mở và học trên Điện Thoại">
+          <span>📱</span> <span class="phone-btn-text">Điện Thoại</span>
+        </button>
         <button class="btn btn-secondary chill-bgm-toggle-btn is-playing" id="header-chill-bgm-btn" title="Bật/Tắt nhạc Chill Lo-Fi thư giãn">
           <span class="music-wave-bars">
             <span></span><span></span><span></span>
@@ -261,7 +269,7 @@
           <!-- Typing Form -->
           <div class="typing-box">
             <div class="input-wrapper">
-              <input type="text" id="check-user-input" class="vocab-input" placeholder="Gõ câu trả lời tại đây..." autocomplete="off" spellcheck="false">
+              <input type="text" id="check-user-input" class="vocab-input" placeholder="Gõ câu trả lời tại đây..." autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
             </div>
 
             <!-- Live & On-Check Character Diff Visualizer (Chỉ báo đỏ vị trí sai) -->
@@ -879,11 +887,106 @@
     </div>
   </div>
 
+  <!-- ==============================================
+       MODAL: ĐỒNG BỘ ĐÁM MÂY & KẾT NỐI ĐIỆN THOẠI
+       ============================================== -->
+  <div class="modal-backdrop" id="cloud-sync-modal">
+    <div class="modal-container" style="max-width: 640px;">
+      <div class="modal-header">
+        <h2 style="display: flex; align-items: center; gap: 10px;">
+          <span>☁️</span> Đồng Bộ Đám Mây & Kết Nối Điện Thoại
+        </h2>
+        <button class="btn btn-icon btn-secondary" id="close-cloud-sync-modal-btn">✕</button>
+      </div>
+
+      <div class="cloud-modal-content">
+        <!-- 1. Hộp kết nối điện thoại bằng QR Code -->
+        <div class="sync-phone-card">
+          <div class="sync-phone-header">
+            <span class="sync-phone-tag">📱 DÙNG TRÊN ĐIỆN THOẠI TRONG 1 GIÂY</span>
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 6px;">
+              Quét mã QR bằng Camera điện thoại để mở link và tự động đồng bộ toàn bộ từ vựng + chương học:
+            </p>
+          </div>
+
+          <div class="sync-qr-wrapper">
+            <div id="sync-qrcode" class="sync-qr-canvas-box"></div>
+            <div class="sync-qr-info">
+              <div class="sync-link-group">
+                <label class="form-label" style="font-size: 0.82rem; margin-bottom: 4px; color: var(--text-main);">Link truy cập từ mọi trình duyệt & điện thoại:</label>
+                <div style="display: flex; gap: 6px;">
+                  <input type="text" id="sync-shareable-link" class="form-input" readonly style="font-size: 0.82rem; padding: 7px 10px; background: rgba(0,0,0,0.45); color: #38bdf8;">
+                  <button type="button" class="btn btn-primary" id="copy-sync-link-btn" style="white-space: nowrap; padding: 6px 14px; font-size: 0.82rem;">
+                    📋 Sao Chép
+                  </button>
+                </div>
+              </div>
+              <div class="sync-tip-box">
+                <span>💡</span> Bất kỳ từ vựng hay chương học mới nào bạn thêm trên máy tính hoặc điện thoại đều sẽ tự động lưu và đồng bộ như nhau!
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Quản lý Mã Đồng Bộ (Sync Key) -->
+        <div class="sync-settings-card">
+          <h4 style="color: var(--primary-light); margin-bottom: 6px; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+            <span>🔑</span> Mã Đồng Bộ Cá Nhân (Sync Key)
+          </h4>
+          <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 12px;">
+            Các thiết bị dùng chung mã này sẽ liên kết và đồng bộ trực tiếp với nhau.
+          </p>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <input type="text" id="sync-key-input" class="form-input" placeholder="Ví dụ: VIET-VOCAB" style="text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px; font-size: 1.05rem;">
+            <button type="button" class="btn btn-primary" id="save-sync-key-btn" style="white-space: nowrap;">
+              Đổi Mã & Nạp
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary" id="sync-now-btn" style="flex: 1; padding: 9px 14px; font-size: 0.88rem;">
+              <span>🔄</span> Lưu Lên Đám Mây Ngay
+            </button>
+            <button type="button" class="btn btn-secondary" id="sync-pull-btn" style="flex: 1; padding: 9px 14px; font-size: 0.88rem;">
+              <span>📥</span> Nạp Lại Từ Đám Mây
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Tùy chọn Firebase Nâng cao (Tùy chọn) -->
+        <details class="sync-advanced-details" style="margin-top: 14px;">
+          <summary style="cursor: pointer; font-size: 0.84rem; color: var(--text-faint); user-select: none;">
+            ⚙️ Cấu hình Firebase Realtime Database riêng (Tùy chọn)
+          </summary>
+          <div style="margin-top: 10px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <label class="form-label" for="sync-firebase-url" style="font-size: 0.82rem;">Firebase Realtime Database URL</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="url" id="sync-firebase-url" class="form-input" placeholder="https://your-db-default-rtdb.firebaseio.com" style="font-size: 0.82rem;">
+              <button type="button" class="btn btn-secondary" id="save-firebase-url-btn" style="white-space: nowrap; font-size: 0.82rem;">Lưu URL</button>
+            </div>
+            <small style="color: var(--text-muted); display: block; margin-top: 6px; font-size: 0.78rem;">
+              Mặc định hệ thống dùng máy chủ Cloud Relay siêu tốc tích hợp sẵn hoàn toàn miễn phí không cần cài đặt.
+            </small>
+          </div>
+        </details>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 20px;">
+        <button type="button" class="btn btn-secondary" id="close-cloud-sync-btn">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Area -->
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="default-words.js?v=20260912_6"></script>
-  <script src="app.js?v=20260912_6"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="cloud-sync.js?v=20260913_1"></script>
+  <script src="default-words.js?v=20260913_1"></script>
+  <script src="app.js?v=20260913_1"></script>
 </body>
 </html>

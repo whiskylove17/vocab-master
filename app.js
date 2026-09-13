@@ -761,6 +761,17 @@
     }
   }
 
+  function syncToCloud() {
+    if (window.CloudSync && typeof window.CloudSync.schedulePush === 'function') {
+      window.CloudSync.schedulePush({
+        chapters,
+        vocabulary,
+        stats,
+        settings: { strictCorrection: settings.strictCorrection }
+      });
+    }
+  }
+
   function saveVocabulary() {
     try {
       localStorage.setItem(STORAGE_KEYS.VOCAB, JSON.stringify(vocabulary));
@@ -769,6 +780,7 @@
     }
     updateHeaderStats();
     renderStatsView();
+    syncToCloud();
   }
 
   function saveChapters() {
@@ -780,6 +792,7 @@
     renderChapterDropdowns();
     renderChapterManageList();
     renderStatsView();
+    syncToCloud();
   }
 
   function saveStats() {
@@ -790,6 +803,7 @@
     }
     updateHeaderStats();
     renderStatsView();
+    syncToCloud();
   }
 
   function saveSettings() {
@@ -3834,6 +3848,171 @@ personal belonging
   }
 
   // ==========================================
+  // CLOUD SYNC & MOBILE CONNECT INTEGRATION
+  // ==========================================
+  function initCloudSyncIntegration() {
+    if (!window.CloudSync) return;
+
+    window.CloudSync.init({
+      onDataUpdated: (remoteData) => {
+        let hasChanged = false;
+        if (remoteData.chapters && Array.isArray(remoteData.chapters) && remoteData.chapters.length > 0) {
+          chapters = remoteData.chapters;
+          try { localStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(chapters)); } catch (e) {}
+          hasChanged = true;
+        }
+        if (remoteData.vocabulary && Array.isArray(remoteData.vocabulary) && remoteData.vocabulary.length > 0) {
+          vocabulary = remoteData.vocabulary;
+          try { localStorage.setItem(STORAGE_KEYS.VOCAB, JSON.stringify(vocabulary)); } catch (e) {}
+          hasChanged = true;
+        }
+        if (remoteData.stats) {
+          stats = Object.assign(stats, remoteData.stats);
+          try { localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats)); } catch (e) {}
+          hasChanged = true;
+        }
+
+        if (hasChanged) {
+          renderChapterDropdowns();
+          renderChapterManageList();
+          renderStatsView();
+          renderVocabularyList();
+          updateHeaderStats();
+          initCheckMode();
+          showToast('☁️ Đã đồng bộ từ vựng & chương mới nhất từ Đám Mây!', 'success');
+        }
+      },
+      onStatusChanged: (status, meta) => {
+        const dot = document.getElementById('header-sync-dot');
+        const text = document.getElementById('header-sync-text');
+        if (dot) {
+          dot.className = 'sync-status-dot ' + status;
+        }
+        if (text) {
+          if (status === 'synced') text.textContent = 'Đã Đồng Bộ ☁️';
+          else if (status === 'syncing') text.textContent = 'Đang Lưu 🔄';
+          else if (status === 'offline') text.textContent = 'Ngoại Tuyến 📴';
+          else if (status === 'error') text.textContent = 'Chờ Đám Mây ⚠️';
+        }
+      }
+    });
+
+    // Cloud Sync Modal UI Handlers
+    const modal = document.getElementById('cloud-sync-modal');
+    const openBtns = [document.getElementById('open-cloud-sync-btn'), document.getElementById('open-phone-sync-btn')];
+    const closeBtns = [document.getElementById('close-cloud-sync-modal-btn'), document.getElementById('close-cloud-sync-btn')];
+
+    function renderQRCode() {
+      const qrContainer = document.getElementById('sync-qrcode');
+      const linkInput = document.getElementById('sync-shareable-link');
+      const keyInput = document.getElementById('sync-key-input');
+      const fbInput = document.getElementById('sync-firebase-url');
+
+      if (!window.CloudSync) return;
+      const shareUrl = window.CloudSync.getShareableLink();
+      const currentKey = window.CloudSync.getSyncKey();
+
+      if (linkInput) linkInput.value = shareUrl;
+      if (keyInput) keyInput.value = currentKey;
+      if (fbInput) fbInput.value = window.CloudSync.getFirebaseUrl() || '';
+
+      if (qrContainer) {
+        qrContainer.innerHTML = '';
+        if (typeof QRCode !== 'undefined') {
+          try {
+            new QRCode(qrContainer, {
+              text: shareUrl,
+              width: 130,
+              height: 130,
+              colorDark: "#0a0e17",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.M
+            });
+            return;
+          } catch (e) {
+            console.warn('QRCode lib error, using fallback image', e);
+          }
+        }
+        // Fallback QR image
+        const img = document.createElement('img');
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=4&data=${encodeURIComponent(shareUrl)}`;
+        img.alt = 'Mã QR Đồng bộ Điện Thoại';
+        qrContainer.appendChild(img);
+      }
+    }
+
+    function openSyncModal() {
+      if (!modal) return;
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+      renderQRCode();
+    }
+
+    function closeSyncModal() {
+      if (!modal) return;
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+    }
+
+    openBtns.forEach(btn => btn?.addEventListener('click', openSyncModal));
+    closeBtns.forEach(btn => btn?.addEventListener('click', closeSyncModal));
+    modal?.addEventListener('click', (e) => {
+      if (e.target.id === 'cloud-sync-modal') closeSyncModal();
+    });
+
+    // Sao chép link
+    document.getElementById('copy-sync-link-btn')?.addEventListener('click', () => {
+      const linkInput = document.getElementById('sync-shareable-link');
+      if (linkInput && linkInput.value) {
+        navigator.clipboard.writeText(linkInput.value).then(() => {
+          showToast('📋 Đã sao chép link đồng bộ! Mở trên điện thoại để nạp ngay.', 'success');
+        }).catch(() => {
+          linkInput.select();
+          document.execCommand('copy');
+          showToast('📋 Đã sao chép link!', 'success');
+        });
+      }
+    });
+
+    // Đổi mã đồng bộ
+    document.getElementById('save-sync-key-btn')?.addEventListener('click', () => {
+      const keyInput = document.getElementById('sync-key-input');
+      const newKey = keyInput?.value?.trim();
+      if (!newKey) {
+        showToast('Vui lòng nhập mã đồng bộ!', 'warning');
+        return;
+      }
+      window.CloudSync.setSyncKey(newKey, {
+        chapters,
+        vocabulary,
+        stats
+      });
+      renderQRCode();
+      showToast(`✨ Đã đổi sang mã đồng bộ: ${newKey}`, 'success');
+    });
+
+    // Lưu lên đám mây ngay
+    document.getElementById('sync-now-btn')?.addEventListener('click', () => {
+      syncToCloud();
+      showToast('🔄 Đang gửi dữ liệu lên đám mây...', 'info');
+    });
+
+    // Nạp từ đám mây ngay
+    document.getElementById('sync-pull-btn')?.addEventListener('click', () => {
+      window.CloudSync.pull({ chapters, vocabulary, stats });
+      showToast('📥 Đang kiểm tra đám mây...', 'info');
+    });
+
+    // Cấu hình Firebase URL
+    document.getElementById('save-firebase-url-btn')?.addEventListener('click', () => {
+      const fbInput = document.getElementById('sync-firebase-url');
+      const url = fbInput?.value?.trim() || '';
+      window.CloudSync.setFirebaseUrl(url);
+      showToast('💾 Đã lưu cấu hình Firebase Database!', 'success');
+    });
+  }
+
+  // ==========================================
   // BOOTSTRAP
   // ==========================================
   function initApp() {
@@ -3849,6 +4028,7 @@ personal belonging
     renderStatsView();
     updateHeaderStats();
     Confetti.init();
+    initCloudSyncIntegration();
   }
 
   if (document.readyState === 'loading') {
