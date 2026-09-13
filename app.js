@@ -734,10 +734,40 @@
         const legacyIds = ['chap-1', 'chap-2', 'chap-3', 'chap-4', 'chap-5'];
         if (vocabulary.some(v => legacyIds.includes(v.chapterId))) {
           vocabulary = vocabulary.filter(v => !legacyIds.includes(v.chapterId));
-          saveVocabulary();
         }
       } else {
         vocabulary = JSON.parse(JSON.stringify(DEFAULT_VOCABULARY));
+      }
+
+      // Tự động làm sạch toàn bộ từ vựng: CHỈ NHẬN TỪ TIẾNG ANH, loại bỏ và bóc tách loại từ như adj, n, v, adv...
+      let vocabSanitized = false;
+      if (Array.isArray(vocabulary)) {
+        vocabulary.forEach(v => {
+          if (v && v.word) {
+            const parsed = extractWordAndPos(v.word);
+            if (parsed.word && parsed.word !== v.word) {
+              v.word = parsed.word;
+              vocabSanitized = true;
+            }
+            if (parsed.pos && (!v.partOfSpeech || v.partOfSpeech === 'word')) {
+              v.partOfSpeech = parsed.pos;
+              vocabSanitized = true;
+            }
+          }
+          if (v && v.meaning) {
+            const parsedM = extractMeaningAndPos(v.meaning);
+            if (parsedM.meaning && parsedM.meaning !== v.meaning) {
+              v.meaning = parsedM.meaning;
+              vocabSanitized = true;
+            }
+            if (parsedM.pos && (!v.partOfSpeech || v.partOfSpeech === 'word')) {
+              v.partOfSpeech = parsedM.pos;
+              vocabSanitized = true;
+            }
+          }
+        });
+      }
+      if (vocabSanitized) {
         saveVocabulary();
       }
 
@@ -1228,9 +1258,11 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
       }
     }
 
+    const cleanWord = stripPartOfSpeech(item.word);
+
     if (promptSpeakBtn) {
       promptSpeakBtn.style.display = 'inline-grid';
-      promptSpeakBtn.onclick = () => speakWord(item.word, null, true);
+      promptSpeakBtn.onclick = () => speakWord(cleanWord, null, true);
     }
 
     // Chế độ Vi -> En (Gõ tiếng Anh)
@@ -1238,7 +1270,7 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
       if (promptTitle) promptTitle.textContent = item.meaning;
 
       if (item.example) {
-        const escapedWord = item.word.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const escapedWord = cleanWord.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
         const regex = new RegExp(`\\b${escapedWord}\\b`, 'gi');
         let sentenceWithBlank = item.example.replace(regex, '<mark>_______</mark>');
         if (!sentenceWithBlank.includes('<mark>_______</mark>')) {
@@ -1253,14 +1285,14 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
         }
       }
 
-      if (input) input.placeholder = 'Gõ từ tiếng Anh tương ứng tại đây... (Enter để kiểm tra)';
+      if (input) input.placeholder = 'Gõ từ tiếng Anh (chỉ cần gõ từ, không gõ loại từ như adj, n)...';
     }
     // Chế độ En -> Vi (AI Check nghĩa Tiếng Việt)
     else {
-      if (promptTitle) promptTitle.textContent = item.word;
+      if (promptTitle) promptTitle.textContent = cleanWord;
 
       if (promptSentence) {
-        promptSentence.innerHTML = `"${item.example || 'Example sentence not provided.'}"<span class="sentence-trans" style="color: #38bdf8;">Hãy dịch nghĩa của từ "${item.word}" sang tiếng Việt theo cách hiểu của bạn. AI sẽ phân tích ngữ nghĩa!</span>`;
+        promptSentence.innerHTML = `"${item.example || 'Example sentence not provided.'}"<span class="sentence-trans" style="color: #38bdf8;">Hãy dịch nghĩa của từ "${cleanWord}" sang tiếng Việt theo cách hiểu của bạn. AI sẽ phân tích ngữ nghĩa!</span>`;
       }
 
       if (input) input.placeholder = 'Gõ nghĩa tiếng Việt của từ này... (Enter để AI chấm điểm)';
@@ -1305,16 +1337,134 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
 
     // Chỉ tự động phát âm khi người dùng đã chọn chương học (mới vào trang chưa chọn thì không phát âm)
     if (hasUserSelectedChapter && settings.soundEnabled && item && item.word) {
-      speakWord(item.word);
+      speakWord(cleanWord);
     }
+  }
+
+  // ==========================================
+  // BỘ NHẬN DIỆN & LÀM SẠCH TỪ TIẾNG ANH (CHỈ NHẬN TỪ TIẾNG ANH, KHÔNG NHẬN LOẠI TỪ NHƯ ADJ, N, V...)
+  // ==========================================
+  const POS_NORMALIZATION_MAP = {
+    n: 'noun', noun: 'noun', 'danh từ': 'noun',
+    v: 'verb', verb: 'verb', 'động từ': 'verb',
+    adj: 'adj', adjective: 'adj', a: 'adj', 'tính từ': 'adj',
+    adv: 'adv', adverb: 'adv', 'trạng từ': 'adv',
+    prep: 'phrase', preposition: 'phrase', 'giới từ': 'phrase',
+    phrase: 'phrase', phr: 'phrase', 'cụm từ': 'phrase',
+    idiom: 'idiom', 'thành ngữ': 'idiom'
+  };
+
+  function normalizePosKey(raw) {
+    if (!raw) return null;
+    const first = raw.split(/[,/]/)[0].trim().toLowerCase().replace(/\.$/, '');
+    return POS_NORMALIZATION_MAP[first] || null;
+  }
+
+  function extractWordAndPos(rawText) {
+    if (!rawText) return { word: '', pos: null };
+    let str = String(rawText).trim();
+    let detectedPos = null;
+
+    // 1. Suffix trong ngoặc đơn/vuông/gạch chéo: 'commercial (adj)', 'road closure [n]', 'fast (adj, adv)', 'quick (a)', 'abandon (v.)'
+    const suffixParensRegex = /\s*[\(\[\/]\s*((?:adj|adjective|adv|adverb|noun|verb|phrase|phr|idiom|prep|preposition|tính từ|danh từ|động từ|trạng từ|cụm từ|thành ngữ|[anv])(?:\s*[,/]\s*(?:adj|adjective|adv|adverb|noun|verb|phrase|phr|idiom|prep|preposition|tính từ|danh từ|động từ|trạng từ|cụm từ|thành ngữ|[anv]))*\.?)\s*[\)\]\/]?\s*$/i;
+    const m1 = str.match(suffixParensRegex);
+    if (m1) {
+      detectedPos = normalizePosKey(m1[1]);
+      str = str.slice(0, m1.index).trim();
+    }
+
+    // 2. Suffix có dấu chấm hoặc từ loại đứng riêng: 'commercial adj.', 'decision n.', 'commercial adj'
+    if (!detectedPos) {
+      const suffixDotRegex = /\s+([a-zA-Z]+)\.\s*$/i;
+      const m2 = str.match(suffixDotRegex);
+      if (m2 && POS_NORMALIZATION_MAP[m2[1].toLowerCase()]) {
+        detectedPos = normalizePosKey(m2[1]);
+        str = str.slice(0, m2.index).trim();
+      }
+    }
+
+    if (!detectedPos) {
+      const suffixWordRegex = /\s+(adj|adjective|adv|adverb|noun|verb|phrase|phr|idiom|prep|preposition)\s*$/i;
+      const m2b = str.match(suffixWordRegex);
+      if (m2b && POS_NORMALIZATION_MAP[m2b[1].toLowerCase()]) {
+        detectedPos = normalizePosKey(m2b[1]);
+        str = str.slice(0, m2b.index).trim();
+      }
+    }
+
+    // 3. Prefix trong ngoặc: '(adj) commercial', '[n] decision', '(v) abandon'
+    if (!detectedPos) {
+      const prefixParensRegex = /^\s*[\(\[]\s*((?:adj|adjective|adv|adverb|noun|verb|phrase|phr|idiom|prep|preposition|tính từ|danh từ|động từ|trạng từ|cụm từ|thành ngữ|[anv])(?:\s*[,/]\s*(?:adj|adjective|adv|adverb|noun|verb|phrase|phr|idiom|prep|preposition|tính từ|danh từ|động từ|trạng từ|cụm từ|thành ngữ|[anv]))*\.?)\s*[\)\]]\s*[-:—–]?\s*/i;
+      const m3 = str.match(prefixParensRegex);
+      if (m3) {
+        detectedPos = normalizePosKey(m3[1]);
+        str = str.slice(m3[0].length).trim();
+      }
+    }
+
+    // 4. Prefix có dấu chấm: 'adj. commercial', 'v. abandon', 'n. decision'
+    if (!detectedPos) {
+      const prefixDotRegex = /^\s*([a-zA-Z]+)\.\s*[-:—–]?\s*/i;
+      const m4 = str.match(prefixDotRegex);
+      if (m4 && POS_NORMALIZATION_MAP[m4[1].toLowerCase()]) {
+        detectedPos = normalizePosKey(m4[1]);
+        str = str.slice(m4[0].length).trim();
+      }
+    }
+
+    // Dọn dẹp ký tự thừa đầu/cuối: -, :, =, /, \
+    str = str.replace(/^[-–—:=/\\]+|[-–—:=/\\]+$/g, '').trim();
+
+    return { word: str, pos: detectedPos };
+  }
+
+  function extractMeaningAndPos(rawMeaning) {
+    if (!rawMeaning) return { meaning: '', pos: null };
+    let str = String(rawMeaning).trim();
+    let detectedPos = null;
+
+    const prefixParens = /^\s*[\(\[]\s*((?:adj|adjective|adv|adverb|noun|verb|phrase|phr|idiom|prep|preposition|tính từ|danh từ|động từ|trạng từ|cụm từ|thành ngữ|[anv])(?:\s*[,/]\s*(?:adj|adjective|adv|adverb|noun|verb|phrase|phr|idiom|prep|preposition|tính từ|danh từ|động từ|trạng từ|cụm từ|thành ngữ|[anv]))*\.?)\s*[\)\]]\s*[-:—–]?\s*/i;
+    const m1 = str.match(prefixParens);
+    if (m1) {
+      detectedPos = normalizePosKey(m1[1]);
+      str = str.slice(m1[0].length).trim();
+    }
+
+    if (!detectedPos) {
+      const prefixDot = /^\s*([a-zA-Z]+)\.\s*[-:—–]?\s*/i;
+      const m2 = str.match(prefixDot);
+      if (m2 && POS_NORMALIZATION_MAP[m2[1].toLowerCase()]) {
+        detectedPos = normalizePosKey(m2[1]);
+        str = str.slice(m2[0].length).trim();
+      }
+    }
+
+    str = str.replace(/^[-–—:=/\\]+|[-–—:=/\\]+$/g, '').trim();
+    return { meaning: str, pos: detectedPos };
+  }
+
+  function stripPartOfSpeech(str) {
+    if (!str) return '';
+    return extractWordAndPos(str).word;
+  }
+
+  function buildParsedItem(rawWord, rawPhonetic, rawMeaning) {
+    const { word: cleanWord, pos: wordPos } = extractWordAndPos(rawWord);
+    const { meaning: cleanMeaning, pos: defPos } = extractMeaningAndPos(rawMeaning || '');
+    return {
+      word: cleanWord,
+      partOfSpeech: wordPos || defPos || 'word',
+      phonetic: (rawPhonetic || '').trim(),
+      meaning: cleanMeaning
+    };
   }
 
   // ==========================================
   // CHARACTER-LEVEL DIFF ALGORITHM (SAI ĐÂU BÁO ĐỎ Ở ĐẤY)
   // ==========================================
   function computeCharDiff(inputStr, targetStr) {
-    const s1 = (inputStr || '').trim();
-    const s2 = (targetStr || '').trim();
+    const s1 = stripPartOfSpeech(inputStr || '').trim();
+    const s2 = stripPartOfSpeech(targetStr || '').trim();
     const s1Lower = s1.toLowerCase();
     const s2Lower = s2.toLowerCase();
 
@@ -1521,11 +1671,13 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
       card.classList.add('is-correct');
     }
 
+    const cleanWord = stripPartOfSpeech(item.word);
+
     // Cập nhật card diff sang trạng thái hoàn thành
     const diffCard = document.getElementById('char-diff-card');
     if (diffCard && diffCard.style.display !== 'none') {
-      const diffResult = computeCharDiff(input.value.trim(), item.word.trim());
-      renderCharDiffStream(diffResult, item.word.trim());
+      const diffResult = computeCharDiff(input.value.trim(), cleanWord);
+      renderCharDiffStream(diffResult, cleanWord);
     }
 
     if (stdFeedback) {
@@ -1545,7 +1697,7 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
     const revealExample = document.getElementById('reveal-example');
     const revealExMeaning = document.getElementById('reveal-ex-meaning');
 
-    if (revealWord) revealWord.textContent = item.word;
+    if (revealWord) revealWord.textContent = cleanWord;
     if (revealPhonetic) revealPhonetic.textContent = item.phonetic || '';
     if (revealMeaning) revealMeaning.textContent = item.meaning;
     if (revealExampleBox) {
@@ -1583,7 +1735,7 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
     }
 
     // Phát âm từ tiếng Anh và sau khi đọc xong bắt đầu đếm ngược 1 phút (60s) hoặc nhấn Enter chuyển ngay
-    speakWord(item.word, () => {
+    speakWord(cleanWord, () => {
       if (!awaitingNextEnter) return;
       startAnswerCountdown(() => {
         if (!awaitingNextEnter) return;
@@ -1608,8 +1760,8 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
     const input = document.getElementById('check-user-input');
     if (!input) return;
 
-    const currentText = input.value.trim();
-    const targetWord = item.word.trim();
+    const currentText = stripPartOfSpeech(input.value.trim());
+    const targetWord = stripPartOfSpeech(item.word.trim());
     const diffResult = computeCharDiff(currentText, targetWord);
 
     // Cập nhật thời gian thực các ký tự đúng/sai đỏ
@@ -1632,10 +1784,11 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
     if (!item) return;
     const input = document.getElementById('check-user-input');
     if (!input) return;
-    input.value = item.word;
+    const cleanWord = stripPartOfSpeech(item.word);
+    input.value = cleanWord;
     input.focus();
     handleCheckInputLive();
-    showToast(`Đã tự động điền từ chuẩn: "${item.word}"`, 'info');
+    showToast(`Đã tự động điền từ chuẩn: "${cleanWord}"`, 'info');
   }
 
   async function submitCheckAnswer() {
@@ -1659,22 +1812,23 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
 
     stats.totalAnswered += 1;
 
-    // === HƯỚNG 1: VI ➔ EN (Gõ từ tiếng Anh) ===
+    // === HƯỚNG 1: VI ➔ EN (Gõ từ tiếng Anh - CHỈ NHẬN TỪ TIẾNG ANH, KHÔNG YÊU CẦU ADJ/N) ===
     if (currentStudyDirection === 'vi-en') {
-      const targetWord = item.word.trim();
-      const diffResult = computeCharDiff(userText, targetWord);
+      const targetWord = stripPartOfSpeech(item.word.trim());
+      const cleanUserText = stripPartOfSpeech(userText);
+      const diffResult = computeCharDiff(cleanUserText, targetWord);
 
       const stdFeedback = document.getElementById('standard-feedback-box');
       const stdTitle = document.getElementById('std-feedback-title');
       const revealWord = document.getElementById('reveal-word');
       const revealPhonetic = document.getElementById('reveal-phonetic');
 
-      if (revealWord) revealWord.textContent = item.word;
+      if (revealWord) revealWord.textContent = targetWord;
       if (revealPhonetic) revealPhonetic.textContent = item.phonetic || '';
 
       if (diffResult.isMatch) {
         // ĐÚNG HOÀN TOÀN
-        handleCheckSuccess(item, userText, card, input, stdFeedback, stdTitle, actionsDefault, actionsNext, false);
+        handleCheckSuccess(item, cleanUserText, card, input, stdFeedback, stdTitle, actionsDefault, actionsNext, false);
       } else {
         // SAI - XỬ LÝ THEO CHẾ ĐỘ: SAI ĐÂU BÁO ĐỎ Ở ĐẤY & ĐỢI ĐẾN SỬA ĐÚNG
         if (settings.strictCorrection) {
@@ -1722,7 +1876,7 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
           if (card) card.classList.add('is-wrong');
           if (stdFeedback) {
             stdFeedback.className = 'ai-eval-box active verdict-wrong';
-            if (stdTitle) stdTitle.innerHTML = `<span>❌</span> CHƯA CHÍNH XÁC! Bạn đã gõ: "<strong>${escapeHtml(userText)}</strong>"`;
+            if (stdTitle) stdTitle.innerHTML = `<span>❌</span> CHƯA CHÍNH XÁC! Bạn đã gõ: "<strong>${escapeHtml(cleanUserText)}</strong>"`;
           }
 
           // Hiển thị đầy đủ đáp án chuẩn và nghĩa tiếng Việt chi tiết ở dưới
@@ -1733,7 +1887,7 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
           const revealExample = document.getElementById('reveal-example');
           const revealExMeaning = document.getElementById('reveal-ex-meaning');
 
-          if (revealWord) revealWord.textContent = item.word;
+          if (revealWord) revealWord.textContent = targetWord;
           if (revealPhonetic) revealPhonetic.textContent = item.phonetic || '';
           if (revealMeaning) revealMeaning.textContent = item.meaning;
           if (revealExampleBox) {
@@ -1746,7 +1900,7 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
             }
           }
 
-          speakWord(item.word);
+          speakWord(targetWord);
           saveVocabulary();
           saveStats();
           updateHeaderStats();
@@ -1764,7 +1918,7 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
             nextBtn.focus();
           }
 
-          speakWord(item.word, () => {
+          speakWord(targetWord, () => {
             if (!awaitingNextEnter) return;
             startAnswerCountdown(() => {
               if (!awaitingNextEnter) return;
@@ -2323,11 +2477,21 @@ Trả về KẾT QUẢ DUY NHẤT dạng JSON (không có markdown khác ngoài 
     e.preventDefault();
     const id = document.getElementById('form-word-id').value;
     const chapterId = document.getElementById('form-chapter').value;
-    const word = document.getElementById('form-word').value.trim();
-    const partOfSpeech = document.getElementById('form-pos').value;
+    const rawWord = document.getElementById('form-word').value.trim();
+    const parsedWord = extractWordAndPos(rawWord);
+    const word = parsedWord.word;
+    let partOfSpeech = document.getElementById('form-pos').value;
+    if (parsedWord.pos && (!partOfSpeech || partOfSpeech === 'noun' || partOfSpeech === 'word')) {
+      partOfSpeech = parsedWord.pos;
+    }
     const phonetic = document.getElementById('form-phonetic').value.trim();
     const topic = document.getElementById('form-topic').value;
-    const meaning = document.getElementById('form-meaning').value.trim();
+    const rawMeaning = document.getElementById('form-meaning').value.trim();
+    const parsedMeaning = extractMeaningAndPos(rawMeaning);
+    const meaning = parsedMeaning.meaning;
+    if (parsedMeaning.pos && (!partOfSpeech || partOfSpeech === 'noun' || partOfSpeech === 'word')) {
+      partOfSpeech = parsedMeaning.pos;
+    }
     const synonymsRaw = document.getElementById('form-synonyms').value.trim();
     const example = document.getElementById('form-example').value.trim();
     const exampleMeaning = document.getElementById('form-example-meaning').value.trim();
@@ -2738,17 +2902,13 @@ personal belonging
       const line = cleanLines[i];
 
       // TH 1: Định dạng 2 dòng liên tiếp chuẩn Quizlet:
-      // Dòng 1: error code
+      // Dòng 1: error code (hoặc error code (n))
       // Dòng 2: /ˈerər koʊd/ : mã lỗi   hoặc   : mã lỗi
       if (i + 1 < cleanLines.length) {
         const nextLine = cleanLines[i + 1];
         const nextPhoneticMatch = nextLine.match(/^(\/.*?\/)\s*[:=\-–—]?\s*(.*)$/);
         if (nextPhoneticMatch) {
-          results.push({
-            word: line,
-            phonetic: nextPhoneticMatch[1].trim(),
-            meaning: nextPhoneticMatch[2].trim()
-          });
+          results.push(buildParsedItem(line, nextPhoneticMatch[1], nextPhoneticMatch[2]));
           i += 2;
           continue;
         }
@@ -2757,11 +2917,7 @@ personal belonging
       // TH 2: Dòng đơn chứa phiên âm: error code /ˈerər koʊd/ : mã lỗi
       const inlinePhoneticMatch = line.match(/^(.*?)\s+(\/.*?\/)\s*[:=\-–—]?\s*(.*)$/);
       if (inlinePhoneticMatch && inlinePhoneticMatch[1].trim()) {
-        results.push({
-          word: inlinePhoneticMatch[1].trim(),
-          phonetic: inlinePhoneticMatch[2].trim(),
-          meaning: inlinePhoneticMatch[3].trim()
-        });
+        results.push(buildParsedItem(inlinePhoneticMatch[1], inlinePhoneticMatch[2], inlinePhoneticMatch[3]));
         i++;
         continue;
       }
@@ -2770,9 +2926,9 @@ personal belonging
       if (line.includes('\t')) {
         const parts = line.split('\t').map(p => p.trim()).filter(Boolean);
         if (parts.length >= 3 && parts[1].startsWith('/') && parts[1].endsWith('/')) {
-          results.push({ word: parts[0], phonetic: parts[1], meaning: parts.slice(2).join(' - ') });
+          results.push(buildParsedItem(parts[0], parts[1], parts.slice(2).join(' - ')));
         } else if (parts.length >= 2) {
-          results.push({ word: parts[0], phonetic: '', meaning: parts.slice(1).join(' - ') });
+          results.push(buildParsedItem(parts[0], '', parts.slice(1).join(' - ')));
         }
         i++;
         continue;
@@ -2781,21 +2937,21 @@ personal belonging
       // TH 4: Phân cách bằng dấu gạch ngang, hai chấm, dấu bằng
       const delimMatch = line.match(/^(.*?)\s*[-–—:=]\s+(.*)$/);
       if (delimMatch && delimMatch[1].trim() && delimMatch[2].trim()) {
-        results.push({ word: delimMatch[1].trim(), phonetic: '', meaning: delimMatch[2].trim() });
+        results.push(buildParsedItem(delimMatch[1], '', delimMatch[2]));
         i++;
         continue;
       }
 
       // TH 5: Định dạng 2 dòng liên tiếp (Dòng i là tiếng Anh, dòng i+1 là tiếng Việt)
       if (i + 1 < cleanLines.length) {
-        results.push({ word: line, phonetic: '', meaning: cleanLines[i + 1] });
+        results.push(buildParsedItem(line, '', cleanLines[i + 1]));
         i += 2;
         continue;
       }
 
       // TH 6: Dòng đơn lẻ (chỉ có từ tiếng Anh)
       if (line) {
-        results.push({ word: line, phonetic: '', meaning: '' });
+        results.push(buildParsedItem(line, '', ''));
       }
       i++;
     }
@@ -2816,6 +2972,7 @@ personal belonging
         id: 'wp-' + idx + '-' + Date.now(),
         selected: true,
         word: item.word,
+        partOfSpeech: item.partOfSpeech || 'word',
         phonetic: item.phonetic,
         meaning: item.meaning
       }));
@@ -2950,11 +3107,9 @@ personal belonging
               const def = t.definition || t.cardSides?.[1]?.media?.[0]?.plainText;
               if (word) {
                 const phoneticMatch = (def || '').match(/^(\/.*?\/)\s*[:=\-–—]?\s*(.*)$/);
-                results.push({
-                  word: word.trim(),
-                  phonetic: phoneticMatch ? phoneticMatch[1].trim() : '',
-                  meaning: phoneticMatch ? phoneticMatch[2].trim() : (def || '').trim()
-                });
+                const phon = phoneticMatch ? phoneticMatch[1].trim() : '';
+                const meaning = phoneticMatch ? phoneticMatch[2].trim() : (def || '').trim();
+                results.push(buildParsedItem(word, phon, meaning));
               }
             });
           }
@@ -2971,11 +3126,9 @@ personal belonging
       const rawDef = m[2].replace(/<[^>]+>/g, '').trim();
       if (rawWord) {
         const phoneticMatch = rawDef.match(/^(\/.*?\/)\s*[:=\-–—]?\s*(.*)$/);
-        results.push({
-          word: rawWord,
-          phonetic: phoneticMatch ? phoneticMatch[1].trim() : '',
-          meaning: phoneticMatch ? phoneticMatch[2].trim() : rawDef
-        });
+        const phon = phoneticMatch ? phoneticMatch[1].trim() : '';
+        const meaning = phoneticMatch ? phoneticMatch[2].trim() : rawDef;
+        results.push(buildParsedItem(rawWord, phon, meaning));
       }
     }
     return results;
@@ -2989,13 +3142,17 @@ personal belonging
       chapNameInput.value = chapterName || 'Chương Quizlet Mới';
     }
 
-    wizardParsedItems = items.map((item, idx) => ({
-      id: 'wp-' + idx + '-' + Date.now(),
-      selected: true,
-      word: item.word || '',
-      phonetic: item.phonetic || '',
-      meaning: item.meaning || ''
-    }));
+    wizardParsedItems = items.map((item, idx) => {
+      const parsed = buildParsedItem(item.word || '', item.phonetic || '', item.meaning || '');
+      return {
+        id: 'wp-' + idx + '-' + Date.now(),
+        selected: true,
+        word: parsed.word,
+        partOfSpeech: item.partOfSpeech && item.partOfSpeech !== 'word' ? item.partOfSpeech : parsed.partOfSpeech,
+        phonetic: parsed.phonetic,
+        meaning: parsed.meaning
+      };
+    });
 
     const textarea = document.getElementById('wizard-raw-text');
     if (textarea) {
@@ -3109,7 +3266,15 @@ personal belonging
 
       // Inline edits update in-memory state
       row.querySelector('input[data-field="word"]').addEventListener('input', (e) => {
-        item.word = e.target.value.trim();
+        const parsed = extractWordAndPos(e.target.value.trim());
+        item.word = parsed.word;
+        if (parsed.pos) item.partOfSpeech = parsed.pos;
+      });
+      row.querySelector('input[data-field="word"]').addEventListener('blur', (e) => {
+        const parsed = extractWordAndPos(e.target.value.trim());
+        e.target.value = parsed.word;
+        item.word = parsed.word;
+        if (parsed.pos) item.partOfSpeech = parsed.pos;
       });
       row.querySelector('input[data-field="phonetic"]').addEventListener('input', (e) => {
         item.phonetic = e.target.value.trim();
@@ -3200,20 +3365,25 @@ personal belonging
       targetChapterName = curr.name;
     }
 
-    // Thêm các từ vựng đã chọn vào chương
+    // Thêm các từ vựng đã chọn vào chương (làm sạch từ tiếng Anh thuần túy, bóc tách loại từ)
     selectedItems.forEach((item, idx) => {
-      const synonyms = item.meaning
-        ? item.meaning.split(/[,;\/]/).map(s => s.trim()).filter(Boolean)
+      const parsed = buildParsedItem(item.word, item.phonetic, item.meaning);
+      const synonyms = parsed.meaning
+        ? parsed.meaning.split(/[,;\/]/).map(s => s.trim()).filter(Boolean)
         : [];
+
+      const finalPos = item.partOfSpeech && item.partOfSpeech !== 'word'
+        ? item.partOfSpeech
+        : parsed.partOfSpeech;
 
       const newVocab = {
         id: 'vocab-' + Date.now() + '-' + idx,
         chapterId: targetChapterId,
-        word: item.word,
-        partOfSpeech: 'word',
-        phonetic: item.phonetic || '',
+        word: parsed.word,
+        partOfSpeech: finalPos,
+        phonetic: item.phonetic || parsed.phonetic || '',
         topic: 'academic',
-        meaning: item.meaning,
+        meaning: parsed.meaning,
         synonyms: synonyms,
         example: '',
         exampleMeaning: '',
@@ -3600,10 +3770,33 @@ personal belonging
       openChapterModal();
     });
 
+    const formWordInput = document.getElementById('form-word');
+    formWordInput?.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const parsed = extractWordAndPos(val);
+      if (parsed.pos) {
+        e.target.value = parsed.word;
+        const posSelect = document.getElementById('form-pos');
+        if (posSelect) posSelect.value = parsed.pos;
+        showToast(`Đã tự động nhận từ "${parsed.word}" và chọn loại từ "${PART_OF_SPEECH_LABELS[parsed.pos] || parsed.pos}"! ✨`, 'info');
+      }
+    });
+    formWordInput?.addEventListener('blur', (e) => {
+      const val = e.target.value.trim();
+      const parsed = extractWordAndPos(val);
+      if (parsed.word !== val) {
+        e.target.value = parsed.word;
+      }
+      if (parsed.pos) {
+        const posSelect = document.getElementById('form-pos');
+        if (posSelect) posSelect.value = parsed.pos;
+      }
+    });
+
     document.getElementById('modal-test-audio-btn')?.addEventListener('click', () => {
       const word = document.getElementById('form-word')?.value.trim();
       if (word) {
-        speakWord(word);
+        speakWord(stripPartOfSpeech(word));
       } else {
         showToast('Hãy nhập từ tiếng Anh trước khi nghe thử', 'warning');
       }
@@ -3863,6 +4056,18 @@ personal belonging
         }
         if (remoteData.vocabulary && Array.isArray(remoteData.vocabulary) && remoteData.vocabulary.length > 0) {
           vocabulary = remoteData.vocabulary;
+          vocabulary.forEach(v => {
+            if (v && v.word) {
+              const parsed = extractWordAndPos(v.word);
+              if (parsed.word) v.word = parsed.word;
+              if (parsed.pos && (!v.partOfSpeech || v.partOfSpeech === 'word')) v.partOfSpeech = parsed.pos;
+            }
+            if (v && v.meaning) {
+              const parsedM = extractMeaningAndPos(v.meaning);
+              if (parsedM.meaning) v.meaning = parsedM.meaning;
+              if (parsedM.pos && (!v.partOfSpeech || v.partOfSpeech === 'word')) v.partOfSpeech = parsedM.pos;
+            }
+          });
           try { localStorage.setItem(STORAGE_KEYS.VOCAB, JSON.stringify(vocabulary)); } catch (e) {}
           hasChanged = true;
         }
